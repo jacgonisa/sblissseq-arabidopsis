@@ -1,0 +1,10 @@
+sample,category,dsb_umis
+BA1,promoter,2437865
+BA1,gene,6910873
+BA1,intergenic,1637685
+BA2,promoter,1357960
+BA2,gene,4040657
+BA2,intergenic,907206
+old_BA1_BA2,promoter,920907
+old_BA1_BA2,gene,5723102
+old_BA1_BA2,intergenic,607170

@@ -1,0 +1,37 @@
+# Conda environment for the sBLISS-seq pipeline + the Python analysis scripts.
+#   conda env create -f environment.yml
+#   conda activate bliss
+#
+# The pipeline (Snakemake) uses the tools in the first block. The Python analysis
+# scripts (e.g. analysis/te_vs_gene_enrichment.py, analysis/grs_landscape.py) use
+# the scipy/pandas/matplotlib/pyBigWig block. The R analysis/figure scripts need R
+# with: data.table, ggplot2, patchwork, and (for hotspot calling) Bioconductor
+# BRGenomics + rtracklayer + clusterProfiler + org.At.tair.db — install those in a
+# separate R/conda env if you want to regenerate the R figures.
+name: bliss
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  # --- core pipeline ---
+  - python=3.11
+  - umi_tools=1.1.5
+  - cutadapt=4.9
+  - bowtie2=2.5.4
+  - hisat2
+  - samtools=1.21
+  - fastqc=0.12.1
+  - multiqc=1.25
+  - bedtools=2.31.1
+  - deeptools=3.5.5
+  - snakemake-minimal=8.20
+  - trim-galore
+  - pigz
+  - pysam
+  # --- python analysis scripts ---
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - pybigwig

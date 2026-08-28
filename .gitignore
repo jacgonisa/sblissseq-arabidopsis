@@ -1,0 +1,40 @@
+# ---- raw sequencing data (never version-control) ----
+*.fastq.gz
+*.fq.gz
+X204SC*/
+X204SC*.tar
+input_cenh3ox/
+
+# ---- aligned reads / large binaries ----
+*.bam
+*.bam.bai
+*.bai
+*.sam
+*.cram
+
+# ---- coverage tracks & genome indices ----
+*.bw
+*.bigwig
+*.mmi
+*.fa
+*.fna
+*.fasta
+*.fai
+reference/*_index*/
+
+# ---- regenerable genome-wide intermediates ----
+**/*.tiles.tsv
+**/*_tiles.bedcov
+**/*.mat.gz
+**/*.npy
+
+# ---- python / editors / os ----
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+*~
+=1
+=10%

@@ -1,0 +1,19 @@
+name: bliss
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - umi_tools=1.1.5
+  - cutadapt=4.9
+  - bowtie2=2.5.4
+  - samtools=1.21
+  - fastqc=0.12.1
+  - multiqc=1.25
+  - bedtools=2.31.1
+  - deeptools=3.5.5
+  - snakemake-minimal=8.20
+  - trim-galore
+  - pigz
+  - pysam

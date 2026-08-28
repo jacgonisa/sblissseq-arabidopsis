@@ -1,0 +1,33 @@
+# sBLISS-seq pipeline config — Arabidopsis thaliana adaptation (Hidmi et al. 2024)
+# Copy to config.yaml and edit the paths for your machine.
+#
+# Read structure (R1): [UMI: 8 bp][Internal_Index: 8 bp][genomic insert from DSB][RA3 adapter]
+# bliss_demux.py extracts the UMI, verifies the Internal_Index (barcode), and strips the first 16 bp.
+# R2 (T7 backbone) is not used after demultiplexing — this is a single-end (R1) pipeline.
+
+samples:
+  BA1:
+    r1: "path/to/BA1_R1.fq.gz"
+    internal_index: "CATCACGC"          # BA1 adapter top-strand 3' blunt end
+  BA2:
+    r1_lanes:                            # multiple lanes are concatenated before demux
+      - "path/to/BA2_L7_R1.fq.gz"
+      - "path/to/BA2_L6_R1.fq.gz"
+    internal_index: "GTCGTCGC"          # BA2 adapter top-strand 3' blunt end
+  old_BA1_BA2:
+    r1: "path/to/oldBA1_R1.fq.gz"
+    internal_index: "GTCGTCGC"          # prepared as BA1 but BA2 adapter was used
+
+adapters:
+  max_barcode_mismatches: 1             # Hamming-distance tolerance on the Internal_Index
+
+reference:
+  # Col-0 ragtag assembly used for the primary run. Organelles: NC_037304.1 (mito), NC_000932.1 (chloro).
+  genome_fasta:  "path/to/genome.fa"
+  hisat2_index:  "reference/hisat2_index/<prefix>"    # build: hisat2-build genome.fa <prefix>
+  bowtie2_index: "reference/bowtie2_index/<prefix>"   # build: bowtie2-build genome.fa <prefix>
+
+params:
+  threads: 8
+
+outdir: "../results"

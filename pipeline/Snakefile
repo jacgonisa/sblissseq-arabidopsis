@@ -1,0 +1,285 @@
+import os
+configfile: "config.yaml"
+
+SAMPLES = list(config["samples"].keys())
+OUTDIR  = config["outdir"]
+REF     = config["reference"]["hisat2_index"]
+THREADS = config["params"]["threads"]
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def r1(sample):
+    s = config["samples"][sample]
+    if "r1_lanes" in s:
+        return s["r1_lanes"]
+    return [s["r1"]]
+
+def r2(sample):
+    s = config["samples"][sample]
+    if "r2_lanes" in s:
+        return s["r2_lanes"]
+    return [s["r2"]]
+
+
+# ── targets ──────────────────────────────────────────────────────────────────
+
+rule all:
+    input:
+        f"{OUTDIR}/multiqc_raw/multiqc_report.html",
+        f"{OUTDIR}/multiqc_trimmed/multiqc_report.html",
+        expand(f"{OUTDIR}/bam/{{sample}}.hisat2.dedup.bam.bai", sample=SAMPLES),
+        expand(f"{OUTDIR}/bam/{{sample}}.bowtie2.dedup.bam.bai", sample=SAMPLES),
+        expand(f"{OUTDIR}/dsb/{{sample}}.dsb.bed.gz", sample=SAMPLES),
+        expand(f"{OUTDIR}/bigwig/{{sample}}.bw", sample=SAMPLES),
+        f"{OUTDIR}/multiqc_full/multiqc_report.html",
+
+
+# ── 0. merge BA2 lanes ────────────────────────────────────────────────────────
+
+rule merge_lanes:
+    input:
+        r1=lambda wc: r1(wc.sample),
+    output:
+        r1=temp(f"{OUTDIR}/merged/{{sample}}_R1.fq.gz"),
+    run:
+        os.makedirs(os.path.dirname(output.r1), exist_ok=True)
+        if len(input.r1) > 1:
+            shell("cat {r1} > {out}".format(r1=" ".join(input.r1), out=output.r1))
+        else:
+            shell("ln -sf $(realpath {src}) {dst}".format(
+                src=input.r1[0], dst=output.r1))
+
+
+# ── 1. FastQC on raw R1 ───────────────────────────────────────────────────────
+
+rule fastqc_raw:
+    input: f"{OUTDIR}/merged/{{sample}}_R1.fq.gz"
+    output:
+        html=f"{OUTDIR}/fastqc/{{sample}}_R1_fastqc.html",
+        zip =f"{OUTDIR}/fastqc/{{sample}}_R1_fastqc.zip",
+    params: outdir=f"{OUTDIR}/fastqc"
+    threads: 2
+    shell:
+        "fastqc -t {threads} -o {params.outdir} {input}"
+
+
+# ── 2. sBLISS demux ──────────────────────────────────────────────────────────
+# Implements the Hidmi et al. algorithm:
+#   UMI            = line2[:8]
+#   Internal_Index = line2[8:16]
+#   line1          = readname + '+' + Internal_Index + '+' + UMI + ' ' + desc
+#   line2          = line2[16:]  (also line4[16:])
+#   accept only if hamming(Internal_Index, target) <= max_mm
+# Header format: @readname+Internal_Index+UMI desc
+# umi_tools dedup --umi-separator=+ reads the UMI from after the last '+'.
+
+rule bliss_demux:
+    input: f"{OUTDIR}/merged/{{sample}}_R1.fq.gz"
+    output:
+        fq=temp(f"{OUTDIR}/umi/{{sample}}_R1_demux.fq.gz"),
+        stats=f"{OUTDIR}/logs/{{sample}}.demux.stats.txt",
+    params:
+        barcode=lambda wc: config["samples"][wc.sample]["internal_index"],
+        max_mm=config["adapters"]["max_barcode_mismatches"],
+        script="../pipeline/scripts/bliss_demux.py",
+    shell:
+        """
+        python {params.script} \
+            {input} {output.fq} \
+            --barcode {params.barcode} \
+            --max-mm {params.max_mm} \
+            --stats {output.stats}
+        """
+
+
+# ── 3. Trim Galore ───────────────────────────────────────────────────────────
+# Paper step 3: trim low-quality bases, remove adapter contamination, filter
+# short reads.  Command from Hidmi et al.:
+#   trim_galore -q 20 --length 20 --output_dir <DIR> <FILE>
+
+rule trim_galore:
+    input: f"{OUTDIR}/umi/{{sample}}_R1_demux.fq.gz"
+    output:
+        fq=temp(f"{OUTDIR}/trimmed/{{sample}}_R1_demux_trimmed.fq.gz"),
+        log=f"{OUTDIR}/logs/{{sample}}.trimgalore.log",
+    params:
+        outdir=f"{OUTDIR}/trimmed",
+    shell:
+        """
+        trim_galore \
+            -q 20 \
+            --length 20 \
+            --output_dir {params.outdir} \
+            --gzip \
+            {input} \
+            2> {output.log}
+        """
+
+
+# ── 4. FastQC + MultiQC on trimmed reads (post-Trim Galore assessment) ───────
+
+rule fastqc_trimmed:
+    input: f"{OUTDIR}/trimmed/{{sample}}_R1_demux_trimmed.fq.gz"
+    output:
+        html=f"{OUTDIR}/fastqc_trimmed/{{sample}}_R1_demux_trimmed_fastqc.html",
+        zip =f"{OUTDIR}/fastqc_trimmed/{{sample}}_R1_demux_trimmed_fastqc.zip",
+    params: outdir=f"{OUTDIR}/fastqc_trimmed"
+    threads: 2
+    shell:
+        "fastqc -t {threads} -o {params.outdir} {input}"
+
+
+rule multiqc_trimmed:
+    input:
+        expand(f"{OUTDIR}/fastqc_trimmed/{{sample}}_R1_demux_trimmed_fastqc.zip", sample=SAMPLES),
+        expand(f"{OUTDIR}/logs/{{sample}}.trimgalore.log", sample=SAMPLES),
+    output: f"{OUTDIR}/multiqc_trimmed/multiqc_report.html"
+    params: outdir=f"{OUTDIR}/multiqc_trimmed"
+    shell:
+        "multiqc {OUTDIR}/fastqc_trimmed {OUTDIR}/trimmed -o {params.outdir} --force"
+
+
+# ── 6a. Alignment — HISAT2 (paper method) ────────────────────────────────────
+# --no-spliced-alignment → DNA mode, no intron spanning
+# --no-unal              → omit unaligned reads
+# --new-summary          → machine-readable summary
+
+rule align_hisat2:
+    input: f"{OUTDIR}/trimmed/{{sample}}_R1_demux_trimmed.fq.gz"
+    output:
+        bam=f"{OUTDIR}/bam/{{sample}}.hisat2.bam",
+        bai=f"{OUTDIR}/bam/{{sample}}.hisat2.bam.bai",
+        summary=f"{OUTDIR}/logs/{{sample}}.hisat2.summary",
+    params:
+        idx=config["reference"]["hisat2_index"],
+        sam=f"{OUTDIR}/bam/{{sample}}.hisat2.sam",
+    threads: THREADS
+    shell:
+        """
+        hisat2 \
+            -x {params.idx} \
+            -U {input} \
+            -S {params.sam} \
+            --no-spliced-alignment \
+            --no-unal \
+            --new-summary \
+            --summary-file {output.summary} \
+            -p {threads}
+        samtools view -bS -F 256 {params.sam} | samtools sort -o {output.bam}
+        samtools index -b {output.bam}
+        rm -f {params.sam}
+        """
+
+
+# ── 6b. Alignment — Bowtie2 (comparison) ─────────────────────────────────────
+
+rule align_bowtie2:
+    input: f"{OUTDIR}/trimmed/{{sample}}_R1_demux_trimmed.fq.gz"
+    output:
+        bam=f"{OUTDIR}/bam/{{sample}}.bowtie2.bam",
+        bai=f"{OUTDIR}/bam/{{sample}}.bowtie2.bam.bai",
+        log=f"{OUTDIR}/logs/{{sample}}.bowtie2.log",
+    params:
+        idx=config["reference"]["bowtie2_index"],
+    threads: THREADS
+    shell:
+        """
+        bowtie2 --very-sensitive -N 1 -p {threads} \
+            -x {params.idx} \
+            -U {input} \
+            2> {output.log} \
+        | samtools view -bS \
+        | samtools sort -o {output.bam}
+        samtools index -b {output.bam}
+        """
+
+
+# ── 7. UMI-based deduplication (exact paper command) ─────────────────────────
+# umi_tools dedup --output-stats → per-UMI and per-position dedup statistics
+# --umi-separator="+"            → UMI extracted from after last '+' in QNAME
+#                                  (written by bliss_demux: @name+Index+UMI)
+
+rule dedup:
+    input: f"{OUTDIR}/bam/{{sample}}.{{aligner}}.bam"
+    output:
+        bam=f"{OUTDIR}/bam/{{sample}}.{{aligner}}.dedup.bam",
+        bai=f"{OUTDIR}/bam/{{sample}}.{{aligner}}.dedup.bam.bai",
+        log=f"{OUTDIR}/logs/{{sample}}.{{aligner}}.dedup.log",
+        stats=f"{OUTDIR}/logs/{{sample}}.{{aligner}}.dedup.stats",
+    shell:
+        # NOTE: --output-stats removed — it crashes with newer pandas
+        # (umi_tools bug: edit_distance_df['edit_distance'][0]="Single_UMI"
+        #  -> LossySetitemError on int64 column). Dedup itself is unaffected.
+        """
+        umi_tools dedup \
+            -I {input} \
+            -S {output.bam} \
+            --umi-separator="+" \
+            --log={output.log}
+        touch {output.stats}
+        samtools index -b {output.bam}
+        """
+
+
+# ── 6. DSB site extraction (5' end of each deduplicated R1 read) ──────────────
+
+rule dsb_sites:
+    input: f"{OUTDIR}/bam/{{sample}}.dedup.bam"
+    output:
+        bed=f"{OUTDIR}/dsb/{{sample}}.dsb.bed.gz",
+        stats=f"{OUTDIR}/dsb/{{sample}}.dsb.stats.txt",
+    shell:
+        """
+        python ../pipeline/scripts/extract_dsb_sites.py {input} \
+            --stats {output.stats} \
+        | sort -k1,1 -k2,2n \
+        | bgzip > {output.bed}
+        tabix -p bed {output.bed}
+        """
+
+
+# ── 7. Coverage tracks (bigWig) ───────────────────────────────────────────────
+
+rule bigwig:
+    input:
+        bam=f"{OUTDIR}/bam/{{sample}}.dedup.bam",
+        bai=f"{OUTDIR}/bam/{{sample}}.dedup.bam.bai",
+    output: f"{OUTDIR}/bigwig/{{sample}}.bw"
+    threads: THREADS
+    shell:
+        """
+        bamCoverage \
+            -b {input.bam} \
+            -o {output} \
+            --normalizeUsing CPM \
+            --binSize 1 \
+            -p {threads}
+        """
+
+
+# ── 8a. MultiQC on raw reads (runs right after FastQC, before any processing) ─
+# Useful for estimating duplication level and adapter contamination up-front.
+
+rule multiqc_raw:
+    input:
+        expand(f"{OUTDIR}/fastqc/{{sample}}_R1_fastqc.zip", sample=SAMPLES),
+    output: f"{OUTDIR}/multiqc_raw/multiqc_report.html"
+    params: outdir=f"{OUTDIR}/multiqc_raw"
+    shell:
+        "multiqc {OUTDIR}/fastqc -o {params.outdir} --force"
+
+
+# ── 8b. MultiQC full (runs at end — alignment + dedup stats) ──────────────────
+
+rule multiqc_full:
+    input:
+        expand(f"{OUTDIR}/fastqc/{{sample}}_R1_fastqc.zip", sample=SAMPLES),
+        expand(f"{OUTDIR}/logs/{{sample}}.demux.stats.txt", sample=SAMPLES),
+        expand(f"{OUTDIR}/logs/{{sample}}.trimgalore.log", sample=SAMPLES),
+        expand(f"{OUTDIR}/logs/{{sample}}.bowtie2.log", sample=SAMPLES),
+        expand(f"{OUTDIR}/logs/{{sample}}.dedup.log", sample=SAMPLES),
+    output: f"{OUTDIR}/multiqc_full/multiqc_report.html"
+    params: outdir=f"{OUTDIR}/multiqc_full"
+    shell:
+        "multiqc {OUTDIR}/fastqc {OUTDIR}/logs -o {params.outdir} --force"

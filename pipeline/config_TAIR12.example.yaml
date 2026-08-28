@@ -1,0 +1,34 @@
+# sBLISS-seq pipeline config — TAIR12 (Col-CC, GCA_028009825.2) re-run
+# rDNA-RESOLVED T2T assembly. bowtie2 only. Separate output tree (results_TAIR12).
+# Copy to config_TAIR12.yaml and edit the paths for your machine.
+#
+# Run with:
+#   snakemake --snakefile pipeline/Snakefile --directory pipeline \
+#             --configfile pipeline/config_TAIR12.yaml --cores 8
+
+samples:
+  BA1:
+    r1: "path/to/BA1_R1.fq.gz"
+    internal_index: "CATCACGC"
+  BA2:
+    r1_lanes:
+      - "path/to/BA2_L7_R1.fq.gz"
+      - "path/to/BA2_L6_R1.fq.gz"
+    internal_index: "GTCGTCGC"
+  old_BA1_BA2:
+    r1: "path/to/oldBA1_R1.fq.gz"
+    internal_index: "GTCGTCGC"
+
+adapters:
+  max_barcode_mismatches: 1
+
+reference:
+  # TAIR12 / Col-CC (GCA_028009825.2), organelles included. Organelles: ChrM / ChrC.
+  genome_fasta:  "path/to/GCA_028009825.2_Col-CC_genomic_withorganelles.fna"
+  hisat2_index:  "reference/hisat2_index_TAIR12/Col-CC"    # not used in this run (bowtie2 only)
+  bowtie2_index: "reference/bowtie2_index_TAIR12/Col-CC"   # build: bowtie2-build genome.fna Col-CC
+
+params:
+  threads: 8
+
+outdir: "../results_TAIR12"
