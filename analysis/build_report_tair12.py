@@ -266,6 +266,21 @@ but not more than their own gDNA coverage predicts). <strong>The rDNA is essenti
 <div class="fig">{f("hotspots_classification.png","60%")}
 <div class="cap">3-way hotspot overlap + compartment classification. rDNA dominates raw hotspots (expected, per §4).</div></div>
 
+<h3>8a. Where hotspots fall &mdash; and how that reconciles with the density test (§7d)</h3>
+<p>The per-feature <em>density</em> test (§7d) found TEs are <em>not</em> more break-dense than genes (median TE &asymp; gene,
+and TEs are <em>depleted</em> on the arms). Yet hotspot <em>counts</em> tell the opposite-looking story &mdash; and both are
+correct, because <strong>hotspots are the upper tail of the density distribution, not its middle.</strong></p>
+<div class="fig">{f("hotspot_distribution.png","99%")}
+<div class="cap"><strong>Distribution of the 466 genuine (non-rDNA) robust hotspots.</strong> <b>A:</b> ~90% are pericentromeric
+(417 peri, 34 centromere, 15 arm). <b>B:</b> occupancy fold (%hotspots &divide; %genome): <strong>TEs 1.67&times; enriched</strong>,
+genes 0.10&times;, lncRNA 0.24&times;, satellites 0.09&times; (satellites sit in unmappable centromere cores, so hotspots cannot
+be called on them). <b>C:</b> the tail metric &mdash; <strong>0.92% of TEs host a hotspot vs only 0.06% of genes (~15&times;)</strong>.</div></div>
+<div class="key"><strong>Reconciliation.</strong> A <em>typical</em> transposon is no more break-prone than a gene (§7d), but the
+<em>extreme</em> break sites fall overwhelmingly on a small subset of (mostly pericentromeric) TEs. So &ldquo;DSBs are enriched
+in TEs&rdquo; is a statement about the <strong>tail / occupancy</strong> (a minority of TEs are strong hotspots), not about the
+<strong>median</strong> TE. Density measures the middle of the distribution; hotspot counts and breaks/Mb measure the tail &mdash;
+which is why they disagree. <em>Script:</em> <code>hotspot_distribution.py</code>.</div>
+
 <h2 id="s9">9. Centromere satellite (CEN180) phasing — inconclusive</h2>
 <p>We tested whether DSBs are phased to the 178 bp CEN180 monomer two ways: (a) a whole-genome metaplot over the
 66,131 genomic CEN180 copies, and (b) mapping the sBLISS reads against the 356 bp <strong>CEN180 dimer</strong>

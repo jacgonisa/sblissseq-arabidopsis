@@ -115,6 +115,24 @@ intrinsic per-element TE fragility (within the pericentromere, TEs are no more b
 than the genes beside them). (`old_BA1_BA2` is the low-complexity library; BA1/BA2 are
 the reliable replicates.)
 
+### 1b. How hotspots are distributed (occupancy/tail view)
+
+`analysis/hotspot_distribution.py` → [`results/tables/hotspot_distribution.csv`](results/tables/hotspot_distribution.csv),
+[`figures/hotspot_distribution.png`](figures/hotspot_distribution.png)
+
+The density test (above) measures the *middle* of the distribution; hotspots are its
+*upper tail*. Of the 466 genuine (non-rDNA) robust hotspots, ~90% are pericentromeric,
+and by feature: **TEs occupancy-fold 1.67×** (enriched) vs **genes 0.10×** (depleted) —
+and **0.92% of TEs host a hotspot vs only 0.06% of genes (~15×)**.
+
+![Hotspot distribution](figures/hotspot_distribution.png)
+
+**Reconciliation with the density test:** a *typical* TE is no more break-prone than a
+gene, but the *extreme* break sites fall overwhelmingly on a small subset of (mostly
+pericentromeric) TEs. So "DSBs are enriched in TEs" is true of the **tail/occupancy**
+(hotspot counts, breaks/Mb), not the **median** (per-feature density) — which is why
+those metrics disagree.
+
 ### 2. Reconciled gene/TE metaplot (report §7a + §7b)
 
 `analysis/metaplot_gene_te_reconciled.R` → [`figures/metaplot_gene_te_reconciled.png`](figures/metaplot_gene_te_reconciled.png)

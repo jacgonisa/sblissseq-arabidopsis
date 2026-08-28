@@ -1,0 +1,5 @@
+feature,colour,genome_frac,n_feature,pct_hotspots_in,occupancy_fold,n_feat_with_hotspot,pct_feat_hotspot
+genes,#8c564b,0.4427,26867,0.042918,0.096947,16,0.059553
+TEs,#9467bd,0.12086,12336,0.20172,1.6691,113,0.91602
+lncRNA,#2ca02c,0.036255,4709,0.0085837,0.23676,4,0.084944
+satellites,#7f7f7f,0.091914,79255,0.0085837,0.093388,32,0.040376
