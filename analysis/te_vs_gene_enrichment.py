@@ -43,17 +43,19 @@ RNG = np.random.default_rng(0)
 def sh(cmd):
     return subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True).stdout
 
-def prep_feature_bed(src, tmp, arm_bed, nor_bed):
-    """Return dict of {'all': path, 'arm': path} — nuclear, rDNA-excluded feature BEDs
-       (cols chrom,start,end,name), 'arm' additionally fully inside chromosome arms."""
+def prep_feature_bed(src, tmp, arm_bed, peri_bed, nor_bed):
+    """Return {'all','arm','peri'} — nuclear, rDNA-excluded feature BEDs
+       (cols chrom,start,end,name); 'arm'/'peri' = features lying ENTIRELY inside a
+       chromosome-arm / pericentromere interval (compartment-stratified)."""
     base = f"{tmp}/{os.path.basename(src)}.clean.bed"
     # keep nuclear chroms, cut to 4 cols, sort; drop features overlapping the 45S NOR
     sh(f"awk 'BEGIN{{OFS=\"\\t\"}} $1~/^Chr[1-5]$/{{print $1,$2,$3,$4}}' {src} | sort -k1,1 -k2,2n "
        f"| bedtools intersect -a - -b {nor_bed} -v > {base}")
-    arm = f"{tmp}/{os.path.basename(src)}.arm.bed"
-    # feature must lie ENTIRELY within an arm interval (-f 1.0)
-    sh(f"bedtools intersect -a {base} -b {arm_bed} -u -f 1.0 > {arm}")
-    return {"all": base, "arm": arm}
+    arm  = f"{tmp}/{os.path.basename(src)}.arm.bed"
+    peri = f"{tmp}/{os.path.basename(src)}.peri.bed"
+    sh(f"bedtools intersect -a {base} -b {arm_bed}  -u -f 1.0 > {arm}")   # entirely within an arm
+    sh(f"bedtools intersect -a {base} -b {peri_bed} -u -f 1.0 > {peri}")  # entirely within pericentromere
+    return {"all": base, "arm": arm, "peri": peri}
 
 def break_sum(feat_bed, break_bg, tmp):
     """Per-feature sum of break events via bedtools map."""
@@ -105,12 +107,13 @@ def main():
     os.makedirs(FIG, exist_ok=True)
     bw = pyBigWig.open(BWWGA)
     rows, dist = [], {}   # dist[(sample,comparison)] = (gene_df, te_df) with density cols
+    COMPS = [("genome_noNOR","all"), ("arms_only","arm"), ("pericentromere","peri")]
     with tempfile.TemporaryDirectory() as tmp:
-        gsets = prep_feature_bed(f"{REG}/genes.bed6", tmp, f"{REG}/arms.bed", f"{REG}/nor_45s.bed")
-        tsets = prep_feature_bed(f"{REG}/TEs.bed6",  tmp, f"{REG}/arms.bed", f"{REG}/nor_45s.bed")
+        gsets = prep_feature_bed(f"{REG}/genes.bed6", tmp, f"{REG}/arms.bed", f"{REG}/pericentromere.bed", f"{REG}/nor_45s.bed")
+        tsets = prep_feature_bed(f"{REG}/TEs.bed6",  tmp, f"{REG}/arms.bed", f"{REG}/pericentromere.bed", f"{REG}/nor_45s.bed")
         for sample in SAMPLES:
             bg = f"{BREAK}/{sample}.break.bedgraph"
-            for comp, key in [("genome_noNOR","all"), ("arms_only","arm")]:
+            for comp, key in COMPS:
                 g = break_sum(gsets[key], bg, tmp); t = break_sum(tsets[key], bg, tmp)
                 for df in (g, t):
                     kb = (df.end - df.start) / 1000.0
@@ -130,10 +133,23 @@ def main():
         print(out[["sample","comparison","norm","n_gene","n_TE","median_gene",
                    "median_TE","ratio_TE_over_gene","cliffs_delta","p_value"]].to_string(index=False))
 
+    # ---- cross-compartment view: is the pericentromere fragile *because of* TEs? ----
+    # compare each feature class ACROSS compartments (median gDNA-norm density).
+    print("\ncross-compartment median gDNA-norm DSB density (per feature):")
+    print(f"{'sample':12} {'gene_arm':>9} {'gene_peri':>10} {'TE_arm':>8} {'TE_peri':>8} "
+          f"{'peri/arm(TE)':>13} {'peri/arm(gene)':>15}")
+    for sample in SAMPLES:
+        ga = np.median(dist[(sample,'arms_only')][0].dens_gdna)
+        gp = np.median(dist[(sample,'pericentromere')][0].dens_gdna)
+        ta = np.median(dist[(sample,'arms_only')][1].dens_gdna)
+        tp = np.median(dist[(sample,'pericentromere')][1].dens_gdna)
+        print(f"{sample:12} {ga:9.3f} {gp:10.3f} {ta:8.3f} {tp:8.3f} {tp/ta:13.2f} {gp/ga:15.2f}")
+
     # ---- figure: gDNA-normalised density, gene vs TE, per comparison x sample ----
     comps = [("genome_noNOR","Genome-wide (nuclear, rDNA excluded)"),
-             ("arms_only","Chromosome arms only")]
-    fig, axes = plt.subplots(2, 3, figsize=(13.5, 8), sharey=True)
+             ("arms_only","Chromosome arms only"),
+             ("pericentromere","Pericentromere only")]
+    fig, axes = plt.subplots(3, 3, figsize=(13.5, 11.4), sharey=True)
     for r,(comp,ctitle) in enumerate(comps):
         for c,sample in enumerate(SAMPLES):
             ax = axes[r][c]; g,t = dist[(sample,comp)]
@@ -145,15 +161,17 @@ def main():
                 if kk in parts: parts[kk].set_color("#333")
             row = out[(out["sample"]==sample)&(out["comparison"]==comp)&(out["norm"]=="gdna_norm")].iloc[0]
             p = row.p_value; star = "ns" if p>=0.05 else ("*" if p>=1e-2 else ("**" if p>=1e-3 else "***"))
-            ax.set_title(f"{sample}\nTE/gene ratio={row.ratio_TE_over_gene:.2f}  δ={row.cliffs_delta:+.2f}  {star}",
-                         fontsize=9.5, fontweight="bold")
+            arrow = "TE>gene" if row.ratio_TE_over_gene>1 else "TE<gene"
+            ax.set_title(f"{sample}  (n {row.n_gene}/{row.n_TE})\nTE/gene={row.ratio_TE_over_gene:.2f} "
+                         f"δ={row.cliffs_delta:+.2f} {star}  {arrow}",
+                         fontsize=9, fontweight="bold")
             ax.set_xticks([1,2]); ax.set_xticklabels(["genes","TEs"])
             if c==0: ax.set_ylabel(f"{ctitle}\n\nlog10 gDNA-norm DSB density", fontsize=9)
             ax.grid(axis="y", alpha=0.25)
-    fig.suptitle("DSB enrichment: transposons vs genes (gDNA-normalised, per feature)  —  "
+    fig.suptitle("DSB enrichment: transposons vs genes, by compartment (gDNA-normalised, per feature)\n"
                  "Mann-Whitney U;  δ = Cliff's delta (TE vs gene);  *** p<1e-3",
                  fontsize=12, fontweight="bold")
-    fig.tight_layout(rect=[0,0,1,0.96])
+    fig.tight_layout(rect=[0,0,1,0.965])
     png = f"{FIG}/te_vs_gene_enrichment.png"
     fig.savefig(png, dpi=140, bbox_inches="tight")
     print("wrote", png)

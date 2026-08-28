@@ -78,23 +78,42 @@ snakemake --snakefile pipeline/Snakefile --directory pipeline \
 
 Per-feature DSB density (breaks/kb), **divided by WGA gDNA** coverage over the same
 feature, compared **gene vs TE** with a Mann–Whitney U test (effect size = Cliff's
-δ; bootstrap CI on the median ratio). Run genome-wide (rDNA excluded) **and**
-restricted to chromosome arms to remove the compartment confound.
+δ; bootstrap CI on the median ratio). Stratified by compartment — genome-wide (rDNA
+excluded), **chromosome arms only**, and **pericentromere only** — to separate
+intrinsic feature effects from the compartment confound.
 
-![TE vs gene DSB enrichment](figures/te_vs_gene_enrichment.png)
+![TE vs gene DSB enrichment by compartment](figures/te_vs_gene_enrichment.png)
 
-| Comparison | BA1 (TE/gene) | BA2 (TE/gene) | Interpretation |
+**Within a compartment (TE vs gene, ÷gDNA):**
+
+| Compartment | BA1 (TE/gene) | BA2 (TE/gene) | Interpretation |
 |-----------|:-------------:|:-------------:|----------------|
-| Genome-wide (rDNA excl.), ÷gDNA | **0.99** (δ −0.03) | **0.98** (δ −0.04) | per feature, TE ≈ gene — **no enrichment** |
-| **Chromosome arms only**, ÷gDNA | **0.69** (δ −0.29) | **0.76** (δ −0.22) | TEs **depleted** vs genes (p < 1e-90) |
+| Genome-wide (rDNA excl.) | **0.99** (δ −0.03) | **0.98** (δ −0.04) | per feature, TE ≈ gene — no enrichment |
+| Chromosome arms only | **0.69** (δ −0.29) | **0.76** (δ −0.22) | TEs **depleted** vs genes (least-fragile features) |
+| Pericentromere only | **0.99** (δ −0.03) | **0.94** (δ −0.08) | TE ≈ gene — both elevated |
 
-**Conclusion:** the widely-quoted "DSBs are enriched in TEs" is a **compartment
-artifact** — TEs sit disproportionately in break-dense pericentromeric
-heterochromatin, so they win *occupancy* / per-Mb metrics. Measured fairly (per
-feature, per kb, ÷gDNA), a transposon is **no more** break-prone than a gene
-genome-wide, and on the arms it is **significantly less** break-prone. (`old_BA1_BA2`
-is the low-complexity library and behaves differently genome-wide; BA1/BA2 are the
-reliable replicates.)
+**Across compartments (pericentromere ÷ arm, same feature class):**
+
+| Feature | BA1 | BA2 | old | reading |
+|--------|:---:|:---:|:---:|---------|
+| TEs, peri/arm | **1.61×** | 1.42× | 1.43× | pericentromeric TEs much more break-dense than arm TEs |
+| genes, peri/arm | 1.12× | 1.15× | 1.15× | pericentromeric genes barely change |
+
+(TEs outnumber genes **2.4 : 1** in the pericentromere — 8,657 vs 3,622 — the reverse
+of genome-wide.)
+
+**Conclusion.** The widely-quoted "DSBs are enriched in TEs" is largely a
+**compartment effect**, not an intrinsic property of transposons. Per feature (per
+kb, ÷gDNA): genome-wide a TE is *no* more break-prone than a gene, and **on the arms
+TEs are the *least*-fragile features** (0.69×). But the hypothesis that
+**pericentromeres are fragile "because of" TEs is partly borne out**: the
+pericentromeric DSB excess is carried **disproportionately by TEs** — a TE gains
+~1.4–1.6× break density in the pericentromere vs the arm, while a gene gains only
+~1.13× — and TEs make up the bulk of pericentromeric sequence. The driver, though, is
+the **heterochromatic pericentromeric context** acting on that TE-rich DNA, not an
+intrinsic per-element TE fragility (within the pericentromere, TEs are no more broken
+than the genes beside them). (`old_BA1_BA2` is the low-complexity library; BA1/BA2 are
+the reliable replicates.)
 
 ### 2. Reconciled gene/TE metaplot (report §7a + §7b)
 
