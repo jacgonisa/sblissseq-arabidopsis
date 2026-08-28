@@ -210,6 +210,37 @@ against the protein-coding background. <strong>Zero significantly enriched terms
 DSBs at protein-coding genes show <em>no</em> functional-category preference &mdash; consistent with breaks being governed by
 chromatin context and genomic location (rDNA, pericentromeric heterochromatin) rather than by gene function.</div>
 
+<h3>7d. Are transposons enriched for DSBs relative to genes? &mdash; a formal test</h3>
+<p>The occupancy/per-Mb view above suggests DSBs favour TEs, but that mixes in the compartment the TEs live in. Here we
+test it <em>per feature</em>: DSB density (break events / kb) &divide; WGA gDNA coverage over the same feature, <strong>gene
+vs TE</strong>, with a Mann&ndash;Whitney U test (effect size = Cliff&rsquo;s &delta;; bootstrap CI on the median ratio),
+stratified by compartment (rDNA excluded).</p>
+<div class="fig">{f("te_vs_gene_enrichment.png","99%")}
+<div class="cap"><strong>Per-feature gDNA-normalised DSB density, genes vs TEs, by compartment</strong> (rows: genome-wide,
+arms only, pericentromere only; columns: the three libraries). Titles give TE/gene median ratio, Cliff&rsquo;s &delta; and
+significance.</div></div>
+<table>
+<tr><th>Within-compartment (TE/gene, &divide;gDNA)</th><th>BA1</th><th>BA2</th><th>reading</th></tr>
+<tr><td>Genome-wide (rDNA excl.)</td><td>0.99 (&delta;&minus;0.03)</td><td>0.98 (&delta;&minus;0.04)</td><td>TE &asymp; gene &mdash; no enrichment</td></tr>
+<tr><td>Chromosome arms only</td><td><strong>0.69</strong> (&delta;&minus;0.29)</td><td><strong>0.76</strong> (&delta;&minus;0.22)</td><td>TEs <strong>depleted</strong> vs genes (least-fragile features)</td></tr>
+<tr><td>Pericentromere only</td><td>0.99 (&delta;&minus;0.03)</td><td>0.94 (&delta;&minus;0.08)</td><td>TE &asymp; gene &mdash; both elevated</td></tr>
+</table>
+<table>
+<tr><th>Across compartments (pericentromere &divide; arm, same feature)</th><th>BA1</th><th>BA2</th><th>old</th></tr>
+<tr><td><strong>TEs</strong>, peri/arm density</td><td><strong>1.61&times;</strong></td><td>1.42&times;</td><td>1.43&times;</td></tr>
+<tr><td>genes, peri/arm density</td><td>1.12&times;</td><td>1.15&times;</td><td>1.15&times;</td></tr>
+</table>
+<p class="cap">TEs outnumber genes <strong>2.4 : 1</strong> in the pericentromere (8,657 vs 3,622) &mdash; the reverse of genome-wide.</p>
+<div class="key"><strong>Conclusion.</strong> The &ldquo;DSBs are enriched in TEs&rdquo; statement is largely a <strong>compartment
+effect</strong>, not an intrinsic property of transposons: per feature a TE is no more break-prone than a gene genome-wide,
+and <strong>on the arms TEs are the <em>least</em>-fragile features</strong> (0.69&times;). The idea that <strong>pericentromeres
+are fragile &ldquo;because of&rdquo; TEs is partly borne out</strong> &mdash; the pericentromeric DSB excess is carried
+disproportionately by TEs (they gain ~1.4&ndash;1.6&times; break density from the compartment vs ~1.13&times; for genes, and
+dominate the sequence 2.4:1) &mdash; but the driver is the <strong>heterochromatic pericentromeric context</strong> acting on
+that TE-rich DNA, not a per-element TE fragility (within the pericentromere TEs are no more broken than the genes beside them).
+<em>Script:</em> <code>te_vs_gene_enrichment.py</code>. Caveat: pericentromeric mappability is lower, so peri magnitudes rest
+on the uniquely-mappable subset; direction is robust across BA1/BA2.</div>
+
 <h2 id="s8">8. Reproducibility &amp; hotspots</h2>
 <div class="fig">{f("sample_correlation.png","80%")}
 <div class="cap">10 kb-bin correlation (NOR excluded). BA1&harr;BA2 strongly concordant; old_BA1_BA2 weaker (low complexity).</div></div>
