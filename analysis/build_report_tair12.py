@@ -240,6 +240,15 @@ dominate the sequence 2.4:1) &mdash; but the driver is the <strong>heterochromat
 that TE-rich DNA, not a per-element TE fragility (within the pericentromere TEs are no more broken than the genes beside them).
 <em>Script:</em> <code>te_vs_gene_enrichment.py</code>. Caveat: pericentromeric mappability is lower, so peri magnitudes rest
 on the uniquely-mappable subset; direction is robust across BA1/BA2.</div>
+<p>Because the TE/gene ratio is a <em>within-sample</em> relative measure, it is largely robust to the adapter/batch
+confound that limits the raw CENH3-OX-vs-WT landscape comparison (&sect;12) &mdash; so we also test it on the
+CENH3-overexpression libraries.</p>
+<div class="fig">{f("te_vs_gene_by_genotype.png","82%")}
+<div class="cap"><strong>CENH3 overexpression does not change transposon-vs-gene DSB enrichment.</strong> TE/gene ratio
+(&divide;gDNA, bootstrap-CI) per library, WT (blue) vs CENH3-OX (red), in each compartment. The OX libraries fall within
+the WT spread throughout &mdash; and the batch-matched WT (<code>BA1_WT</code>, same delivery) sits among the OX points in
+every compartment. (The high outlier is <code>old_BA1_BA2</code>, the low-complexity library.) Consistent with the overall
+result that CENH3-OX leaves the DSB landscape unchanged (&sect;12).</div></div>
 
 <h2 id="s8">8. Reproducibility &amp; hotspots</h2>
 <div class="fig">{f("sample_correlation.png","80%")}

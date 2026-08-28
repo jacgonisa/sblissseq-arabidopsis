@@ -35,7 +35,10 @@ REG    = os.environ.get("BLISS_REGDIR",   f"{ANA}/regions")
 BREAK  = os.environ.get("BLISS_BREAKDIR", f"{ROOT}/results_TAIR12/breaks")
 BWWGA  = os.environ.get("BLISS_WGA",      f"{ANA}/coverage_cpm/wga.cov.cpm.bw")
 FIG    = os.environ.get("BLISS_FIGDIR",   f"{ANA}/figures")
-SAMPLES = ["BA1", "BA2", "old_BA1_BA2"]
+SAMPLES = ["BA1", "BA2", "old_BA1_BA2", "BA1_WT", "BA2_OX_40", "BA2_OX_80_1", "BA2_OX_80_2"]
+GENO    = {"BA1":"WT","BA2":"WT","old_BA1_BA2":"WT","BA1_WT":"WT",
+           "BA2_OX_40":"CENH3-OX","BA2_OX_80_1":"CENH3-OX","BA2_OX_80_2":"CENH3-OX"}
+VIOLIN  = ["BA1", "BA2", "old_BA1_BA2"]   # the reliable WT set shown in the per-feature violins
 NUCLEAR = {"Chr1","Chr2","Chr3","Chr4","Chr5"}
 EPS = 1e-6
 RNG = np.random.default_rng(0)
@@ -151,7 +154,7 @@ def main():
              ("pericentromere","Pericentromere only")]
     fig, axes = plt.subplots(3, 3, figsize=(13.5, 11.4), sharey=True)
     for r,(comp,ctitle) in enumerate(comps):
-        for c,sample in enumerate(SAMPLES):
+        for c,sample in enumerate(VIOLIN):
             ax = axes[r][c]; g,t = dist[(sample,comp)]
             data = [np.log10(g.dens_gdna.to_numpy()+1e-3), np.log10(t.dens_gdna.to_numpy()+1e-3)]
             parts = ax.violinplot(data, showmedians=True, widths=0.85)
@@ -175,6 +178,39 @@ def main():
     png = f"{FIG}/te_vs_gene_enrichment.png"
     fig.savefig(png, dpi=140, bbox_inches="tight")
     print("wrote", png)
+
+    # ---- genotype comparison: does CENH3-OX change the TE/gene ratio? ----
+    # The TE/gene ratio is a WITHIN-sample relative measure, so it is largely robust
+    # to the adapter/batch confound that plagues the raw OX-vs-WT landscape comparison.
+    gd = out[out["norm"]=="gdna_norm"].copy()
+    gd["geno"] = gd["sample"].map(GENO)
+    comp_order = ["genome_noNOR","arms_only","pericentromere"]
+    comp_lbl   = {"genome_noNOR":"Genome-wide","arms_only":"Arms","pericentromere":"Pericentromere"}
+    fig2, ax = plt.subplots(figsize=(10.5, 5.6))
+    for _, row in gd.iterrows():
+        xi = comp_order.index(row["comparison"])
+        wt = row["geno"]=="WT"
+        xj = xi + (-0.16 if wt else 0.16)
+        ax.errorbar(xj, row["ratio_TE_over_gene"],
+                    yerr=[[row["ratio_TE_over_gene"]-row["ratio_CI_low"]],
+                          [row["ratio_CI_high"]-row["ratio_TE_over_gene"]]],
+                    fmt="o", ms=7, capsize=3, lw=1.2,
+                    color=("#1f6feb" if wt else "#d62728"),
+                    mfc=("#1f6feb" if wt else "#d62728"), alpha=0.9, zorder=3)
+        ax.annotate(row["sample"].replace("BA2_OX_","OX").replace("BA1_WT","WT2").replace("old_BA1_BA2","old"),
+                    (xj, row["ratio_CI_high"]), fontsize=6.5, ha="center", va="bottom", rotation=90, color="#444")
+    ax.axhline(1.0, color="k", lw=0.8, ls="--")
+    ax.set_xticks(range(len(comp_order))); ax.set_xticklabels([comp_lbl[c] for c in comp_order])
+    ax.set_ylabel("TE / gene DSB-density ratio  (÷gDNA, per feature)")
+    ax.set_title("Does CENH3 overexpression change transposon-vs-gene DSB enrichment?\n"
+                 "WT (blue) vs CENH3-OX (red) — within-sample ratio, robust to batch/adapter", fontsize=11, fontweight="bold")
+    from matplotlib.lines import Line2D
+    ax.legend(handles=[Line2D([],[],marker="o",ls="",color="#1f6feb",label="WT (4 libraries)"),
+                       Line2D([],[],marker="o",ls="",color="#d62728",label="CENH3-OX (3 libraries)")],
+              frameon=False, loc="upper right")
+    ax.grid(axis="y", alpha=0.25); fig2.tight_layout()
+    png2 = f"{FIG}/te_vs_gene_by_genotype.png"
+    fig2.savefig(png2, dpi=140, bbox_inches="tight"); print("wrote", png2)
 
 if __name__ == "__main__":
     main()
