@@ -258,12 +258,27 @@ but not more than their own gDNA coverage predicts). <strong>The rDNA is essenti
 <div class="cap">3-way hotspot overlap + compartment classification. rDNA dominates raw hotspots (expected, per §4).</div></div>
 
 <h2 id="s9">9. Centromere satellite (CEN180) phasing — inconclusive</h2>
-<div class="warn">We tested whether DSBs are phased to the 178 bp CEN180 monomer (whole-genome metaplot and
-<code>minimap2</code> dimer mapping with WGA-gDNA normalisation). The dimer is <strong>confounded</strong> &mdash; the single
-consensus imposes a sequence-similarity coverage profile, so even WGA naked DNA correlates with nucleosome occupancy
-(r=+0.94), and the normalised DSB&ndash;nucleosome correlation flips sign with the window. <strong>No robust DSB&ndash;nucleosome
-phase can be claimed; short-read sBLISS cannot resolve sub-nucleosome positioning in the satellite.</strong>
-(Figures: <code>figures/cen178_metaplot_bliss*.png</code>, <code>cen180_phasing_main_bliss*.png</code>.)</div>
+<p>We tested whether DSBs are phased to the 178 bp CEN180 monomer two ways: (a) a whole-genome metaplot over the
+66,131 genomic CEN180 copies, and (b) mapping the sBLISS reads against the 356 bp <strong>CEN180 dimer</strong>
+(2&times;178 bp consensus, <code>minimap2 -ax sr</code>) to read off a 5&prime;-cut-site profile across one repeat unit.</p>
+<div class="fig">{f("cen178_metaplot_bliss.png","88%")}
+<div class="cap"><strong>(a) Whole-genome CEN180 metaplot</strong> (anchor = repeat start, &plusmn;1068 bp &asymp; 12 monomers,
+per-window detrended). The DSB signal is <strong>~178 bp-periodic</strong> across the satellite (autocorrelation at 178 bp
+&asymp; +0.73, all three libraries) &mdash; DSB density tracks the monomer, non-sinusoidally.</div></div>
+<div class="fig">{f("cen180_phasing_main_bliss.png","82%")}
+<div class="cap"><strong>(b) sBLISS 5&prime;-end profile on the CEN180 dimer</strong> vs MNase nucleosome occupancy (grey). All three
+libraries agree on a structured profile across the 356 bp unit &mdash; but see the normalisation below before reading
+biology into it.</div></div>
+<div class="fig">{f("cen180_phasing_main_bliss_wganorm.png","82%")}
+<div class="cap"><strong>Why the dimer is confounded.</strong> (A) raw DSB 5&prime; density, the WGA (random) gDNA baseline
+(dotted) and MNase; (B) DSB &divide; gDNA. The single consensus dimer imposes a <strong>sequence-similarity coverage
+profile</strong>: even WGA <em>naked</em> DNA tracks nucleosome occupancy (r = +0.94) in the monomer interior, so the
+gDNA &ldquo;baseline&rdquo; already carries the signal it is meant to remove and the normalised DSB&ndash;nucleosome
+correlation <strong>flips sign with the window</strong>.</div></div>
+<div class="warn"><strong>Verdict: inconclusive.</strong> There is a real, reproducible ~178 bp DSB periodicity over the
+centromeric satellite (a), but the dimer profile (b) cannot be cleanly de-confounded: no robust DSB&ndash;nucleosome
+phase can be claimed, and short-read sBLISS (~2&ndash;4% of the satellite uniquely mappable) cannot resolve
+sub-nucleosome positioning in CEN180. Shown here for completeness, not as a positive result.</div>
 
 <h2 id="s10">10. BiCroLab blissNPanalysis cross-checks</h2>
 <p>Mirroring <a href="https://github.com/BiCroLab/blissNPanalysis">BiCroLab/blissNPanalysis</a> (human + mouse), adapted to TAIR12.</p>
